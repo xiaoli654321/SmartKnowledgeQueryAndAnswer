@@ -1,0 +1,87 @@
+server:
+  port: 8081
+  error:
+    include-message: always   # 开发期把异常原因带进响应体，排障快；生产改 never，避免泄露内部信息          # 讲义口径：ai-service = 8081
+
+spring:
+  application:
+    name: ai-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        ip: 127.0.0.1
+    openfeign:
+      client:
+        config:
+          default:
+            # 调 search-service：向量检索要算 query 向量，200ms~2s，给 30s 足够
+            connect-timeout: 3000
+            read-timeout: 30000
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379       # Token 计量按租户累加：token:{tenantId}
+
+# ── 多供应商 Failover：List<LlmProvider> 的顺序就是降级顺序 ──
+llm:
+  provider:
+    openai:
+      base-url: https://api.siliconflow.cn/v1
+      # key 走环境变量优先，没设才用默认值；生产环境务必只留环境变量
+      api-key: ${LLM_API_KEY:sk-ryusfpstdxxrteopfxbdzrydsgpbezvgzcljgslmqwmluscx}
+      model: zai-org/GLM-5.3-Flash      # 旧配置里的 DeepSeek-R1-0528-Qwen3-8B 已经下线
+    ollama:
+      base-url: http://localhost:11434  # 本地兜底：硅基流动挂了还能用本机小模型
+      model: qwen3:1.7b
+
+# ── 治理层：instance 名字必须和 @RateLimiter/@CircuitBreaker/@Retry 里的 name 一模一样 ──
+#    旧工程就是这里写成 ratelimiter、注解写 llmRateLimiter，限流静默失效
+resilience4j:
+  ratelimiter:
+    instances:
+      llmRateLimiter:
+        limit-for-period: 20              # 每个刷新周期最多 20 次 LLM 调用
+        limit-refresh-period: 10s
+        timeout-duration: 0ms             # 拿不到令牌立刻失败，不排队（排队会把线程池拖死）
+  circuitbreaker:
+    instances:
+      llmBreaker:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5        # 样本太少时不熔断，避免刚启动就误判
+        failure-rate-threshold: 50        # 失败率超过 50% 打开熔断
+        wait-duration-in-open-state: 10s  # 打开 10 秒后进半开，试探恢复
+        permitted-number-of-calls-in-half-open-state: 3
+        # ★ 被限流（RequestNotPermitted）不算"供应商故障"，不能让熔断计数。
+        #   踩过的坑：不忽略的话，突发流量里被限流的那几次会被熔断器当成失败，
+        #   失败率一过阈值，熔断打开，后面所有请求都变成 503 —— 用户看到的是"服务挂了"，
+        #   实际只是被限流，语义完全错位。
+        ignore-exceptions:
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
+  retry:
+    instances:
+      llmRetry:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - java.io.IOException
+          - org.springframework.web.client.ResourceAccessException
+
+# 离线评测服务地址：不进 Nacos、不走注册中心，直连 HTTP（讲义明确要求）
+# RAG 编排参数
+rag:
+  top-k: 5            # 每次问答带几段上下文给模型（越多越准，但更贵、更容易超长）
+
+metric:
+  service:
+    base-url: http://127.0.0.1:8090
+    enabled: true     # metric-service 已就绪，问答样本异步送评测
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}

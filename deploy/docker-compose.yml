@@ -1,0 +1,113 @@
+# ─────────────────────────────────────────────────────────────
+# 项目7 基础设施编排
+# MySQL 不在这里：本机已装 MySQL80（3306），容器里再起一个会抢端口
+# 启动：docker compose up -d     查看：docker ps     日志：docker logs -f <name>
+# ─────────────────────────────────────────────────────────────
+services:
+
+  # ── 注册中心 ──────────────────────────────────────────────
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: nacos
+    environment:
+      MODE: standalone              # 单机模式，不连 MySQL 配置中心（用内置 Derby）
+      NACOS_AUTH_ENABLE: "false"    # 本地开发关鉴权；生产必须开
+      JVM_XMS: 256m                 # 本机内存紧张（Docker 总内存 ~3.8G），压小一点
+      JVM_XMX: 384m
+    ports:
+      - "8848:8848"                 # HTTP 控制台 + OpenAPI
+      - "9848:9848"                 # ★ Nacos 2.x 的 gRPC 端口（= 8848+1000）
+      - "9849:9849"                 # ★ gRPC 集群间通信端口（= 8848+1001）
+      # 只开 8848 的现象：控制台能打开，客户端却一直刷 Client not connected
+    restart: unless-stopped
+
+  # ── 消息队列（文档索引事件）────────────────────────────────
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller          # 3.x KRaft 单节点：一个进程同时当 broker 和 controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      # ★ advertised 是"回给客户端"的地址，必须宿主机可达；写 kafka:9092 的话宿主 Java 连不上
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"         # 本地图省事：发消息时自动建 topic
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      # ★ 默认堆是 1G，本机 Docker 只有 ~3.8G 且 Dify 占了大半，必须压到 512m，否则 OOM
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    ports:
+      - "9092:9092"
+    restart: unless-stopped
+
+  # ── 缓存（Token 计量）──────────────────────────────────────
+  redis:
+    image: redis:6-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+
+  # ── 全链路追踪：后端 ───────────────────────────────────────
+  skywalking-oap:
+    image: apache/skywalking-oap-server:9.7.0
+    container_name: skywalking-oap
+    environment:
+      TZ: Asia/Shanghai
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+      SW_STORAGE: h2                # 本地用内置 H2，重启丢数据但够用；生产换 ES
+    ports:
+      - "11800:11800"               # gRPC：Java Agent / Python OTel 上报 Span
+      - "12800:12800"               # HTTP：UI 查询数据
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/12800' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  # ── 全链路追踪：前端 ───────────────────────────────────────
+  skywalking-ui:
+    image: apache/skywalking-ui:9.7.0
+    container_name: skywalking-ui
+    environment:
+      SW_OAP_ADDRESS: http://skywalking-oap:12800
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+    ports:
+      - "18080:8080"                # ★ 映射 18080 不是 8080，8080 是 gateway 的
+    depends_on:
+      skywalking-oap:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── 指标采集 ──────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+
+  # ── 指标看板 ──────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin          # 登录 admin / admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    restart: unless-stopped

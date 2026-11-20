@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.4</version>
+        <relativePath/>
+    </parent>
+    <groupId>com.zjjxy</groupId>
+    <artifactId>father_project</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <!-- 版本统一在这里定：Boot 3.2.4 + Spring Cloud 2023.0.0 + Spring Cloud Alibaba 2023.0.1.0
+         这三个是官方配套的一组，不要单独升级任何一个 -->
+    <properties>
+        <java.version>17</java.version>
+        <spring.cloud.version>2023.0.0</spring.cloud.version>
+        <spring.cloud.alibaba.version>2023.0.1.0</spring.cloud.alibaba.version>
+        <!-- mybatis-plus 不在 Spring Boot BOM 里，必须自己指定版本；
+             必须用 -spring-boot3- 这个 starter，用错成 mybatis-plus-boot-starter 启动会报 factoryBeanObjectType -->
+        <mybatis.plus.version>3.5.9</mybatis.plus.version>
+    </properties>
+
+    <modules>
+        <module>gateway</module>
+        <module>doc-service</module>
+        <module>search-service</module>
+        <module>ai-service</module>
+        <!-- metric-service 是 Python 项目，不进 Maven 父工程、也不注册 Nacos -->
+    </modules>
+
+    <!-- ★ 关键：BOM 必须放在 dependencyManagement 里。
+         <scope>import</scope> 只在这里合法；放到 <dependencies> 里（不管带不带 scope），
+         Maven 都不会导入它的版本管理，子模块所有 Cloud 依赖都会报 "version is missing" -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- 管 Spring Cloud 全家桶版本：gateway / openfeign / loadbalancer / resilience4j -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring.cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- 管 Nacos 相关 starter 版本 -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring.cloud.alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- 自己管版本：mybatis-plus -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis.plus.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- 放在 <dependencies>（不是 management）里 = 所有子模块强制继承，
+         适合“每个服务都要”的东西，避免 4 个 pom 各写一遍 -->
+    <dependencies>
+        <!-- 提供 /actuator 端点：健康检查、info -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- 把指标转成 Prometheus 格式：/actuator/prometheus 才有数据 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <!-- scope=test 同样会继承：4 个模块的 *ApplicationTests 才有 @SpringBootTest 可编译 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+<!--        lombok-->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

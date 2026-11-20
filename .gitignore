@@ -1,0 +1,45 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+
+### VS Code ###
+.vscode/
+
+# 日志
+logs/
+*.log
+
+# 本地私有配置（密码、本地库地址）
+application-local.yml
+application-dev.yml
+
+# 打包产物
+*.jar
+*.war
+
+# 系统文件
+.DS_Store
+Thumbs.db

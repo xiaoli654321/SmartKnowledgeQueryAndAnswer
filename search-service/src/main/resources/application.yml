@@ -1,0 +1,57 @@
+server:
+  port: 8083          # 讲义口径：search-service = 8083（原来这里没有 port，会和别人抢 8080）
+
+spring:
+  application:
+    name: search-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        ip: 127.0.0.1
+  datasource:
+    # search_db 存分块 + 向量（向量按 JSON 文本存，讲义说"生产用向量库"，先简化）
+    url: jdbc:mysql://127.0.0.1:3306/search_db?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf8
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  kafka:
+    bootstrap-servers: 127.0.0.1:9092
+    consumer:
+      group-id: search-index-group       # 消费组：同一组内多实例分摊分区，不会重复建索引
+      auto-offset-reset: earliest        # ★ 没有历史 offset 时从最早开始读：先发消息、后起消费者也能收到
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        # ★ 关键：生产者会把「它自己的类全限定名」写进消息头，search-service 里没有那个类。
+        #   关掉类型头、指定用本地 DTO 反序列化，否则消费时报 ClassNotFoundException
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.zjjxy.searchservice.event.DocumentIndexedEvent
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+# 检索相关参数：M2 会用到，先占好位，改参数不用改代码
+search:
+  top-k: 5                # 混合检索最终返回几条上下文
+  keyword-top-k: 10       # 关键词召回候选数
+  vector-top-k: 10        # 向量召回候选数
+  rrf-k: 60
+  vector-candidate-limit: 2000   # 向量召回时最多捞多少条候选进内存算余弦（防止整库读进内存）               # RRF 融合公式里的平滑常数，通常取 60
+
+# 向量模型配置（SiliconFlow 的 bge-m3，1024 维）
+embedding:
+  base-url: https://api.siliconflow.cn/v1
+  api-key: ${EMBEDDING_API_KEY:sk-ryusfpstdxxrteopfxbdzrydsgpbezvgzcljgslmqwmluscx}   # 生产改环境变量，别把 key 提交进仓库
+  model: BAAI/bge-m3
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}

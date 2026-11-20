@@ -1,0 +1,33 @@
+# Prometheus 抓取配置
+# 容器里的 localhost 是容器自己，抓宿主机上的 Java 服务必须用 host.docker.internal
+# （Docker Desktop 在 Windows/Mac 上提供这个域名；Linux 需要 extra_hosts: host-gateway）
+global:
+  scrape_interval: 15s            # 每 15 秒抓一次
+  evaluation_interval: 15s
+
+scrape_configs:
+  # 4 个 Java 服务：只要引了 actuator + micrometer-registry-prometheus 就有这个端点
+  - job_name: gateway
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+
+  - job_name: ai-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8081']
+
+  - job_name: doc-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8082']
+
+  - job_name: search-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8083']
+
+  # Prometheus 自己也盯一眼，便于排查"是服务没上报还是 Prom 自己挂了"
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

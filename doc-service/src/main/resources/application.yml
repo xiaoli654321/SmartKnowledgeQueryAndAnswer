@@ -1,0 +1,43 @@
+server:
+  port: 8082          # 讲义口径：doc-service = 8082（8083 留给 search-service）
+
+spring:
+  application:
+    name: doc-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        ip: 127.0.0.1            # ★ Windows 多网卡：不指定会注册成 172.x 虚拟网卡地址，Feign 打不通
+  datasource:
+    # ★ host:port 不能省。原来写 jdbc:mysql://doc_db 缺了 127.0.0.1:3306，启动直接连不上库
+    # ★ allowPublicKeyRetrieval=true 是 MySQL 8 的 caching_sha2_password 认证要的，不加报 Public Key Retrieval is not allowed
+    url: jdbc:mysql://127.0.0.1:3306/doc_db?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf8
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  kafka:
+    bootstrap-servers: 127.0.0.1:9092
+    producer:
+      # key 用文档 ID 保证同一篇文档的分片进同一分区、顺序不乱
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # value 用 JSON（会自动带上类型头，consumer 侧我们要用自己的类接收，所以那边关掉类型头）
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  servlet:
+    multipart:
+      # ★ 默认单文件上限只有 1MB，传稍大的 PDF 就报 MaxUploadSizeExceededException
+      max-file-size: 30MB
+      max-request-size: 30MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true   # 库里是 tenant_id，实体里是 tenantId，靠它自动映射
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus   # 不写这行 /actuator/prometheus 直接 404
+  metrics:
+    tags:
+      application: ${spring.application.name}
