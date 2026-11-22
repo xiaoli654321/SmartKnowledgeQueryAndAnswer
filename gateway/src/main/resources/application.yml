@@ -37,3 +37,8 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+# JWT 配置：密钥必须来自环境变量（写死等于谁都能伪造 token）
+security:
+  jwt:
+    secret: ${JWT_SECRET:skqa-dev-secret-change-me-32bytes-min!!}
+    ttl-seconds: 7200

@@ -18,13 +18,10 @@ import java.util.Map;
 /**
  * 异步送评测样本给 metric-service（M4）。
  * <p>
- * 三条设计原则：
- * 1) @Async：绝不能放在问答热路径上 —— RAGAS 打一次分要好几秒，同步做用户就得多等几秒；
- * 2) 开关控制：metric.service.enabled=false 时直接返回，M3 阶段还没有评测服务，避免刷错误日志；
- * 3) 绝不影响主流程：任何异常都只记 debug，样本丢了就丢了，第二天还有新的。
+ * 三条原则：@Async 不阻塞热路径；开关控制（服务没起时不刷错误日志）；异常绝不影响主流程。
  * <p>
- * 注意 @Async 生效的前提：启动类要有 @EnableAsync，且调用方是【别的 Bean】
- * （同类内部自调用不走代理，@Async 会退化成同步 —— 这是最常见的 @Async 失效原因）。
+ * ★ @Async 生效的两个前提：启动类有 @EnableAsync；调用方是【别的 Bean】
+ *   （同类内部自调用不走代理，@Async 会静默退化成同步）。
  */
 @Service
 public class MetricReporter {
@@ -52,13 +49,10 @@ public class MetricReporter {
             body.put("question", question);
             body.put("contexts", hits.stream().map(SearchHitDto::content).toList());
             body.put("answer", answer);
-            body.put("tenantId", hits.isEmpty() ? null : null);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-
-            restTemplate.postForObject(baseUrl + "/metric/sample",
-                    new HttpEntity<>(body, headers), String.class);
+            restTemplate.postForObject(baseUrl + "/metric/sample", new HttpEntity<>(body, headers), String.class);
         } catch (Exception e) {
             log.debug("评测样本上报失败（不影响主流程）：{}", e.getMessage());
         }

@@ -19,12 +19,11 @@ import java.util.List;
  * 建索引：把一条「文档已索引」事件落成 doc_chunk 记录（含向量）。
  * <p>
  * ★ 幂等策略：先按 (document_id, tenant_id) 删旧块，再整批插入。
- *   为什么必须删：同一篇文档改版会重新发事件，不删就会有新旧两份内容一起被检索到，
+ *   为什么必须删：文档改版会重发事件，不删就会有新旧两份内容一起被检索到，
  *   用户可能拿到已经作废的政策条款 —— 这种错误比"搜不到"危险得多。
  * <p>
  * ★ 向量失败降级：embedding 调用失败时不阻断入库，只把 embedding 留空。
  *   这样关键词那一路仍然可用，等模型恢复后重新触发一次索引即可补齐。
- *   代价是要接受"这段时间语义检索缺一条"，但总比整篇文档建不进去强。
  */
 @Service
 public class ChunkIndexService {
@@ -62,11 +61,11 @@ public class ChunkIndexService {
             log.info("清理旧索引 docId={} 删除 {} 块", event.docId(), deleted);
         }
 
-        // 2) 批量算向量（失败降级为 null）
+        // 2) 批量算向量；失败降级为 null（只存关键词）
         List<String> contents = chunks.stream().map(DocumentIndexedEvent.Chunk::content).toList();
         List<float[]> vectors = tryEmbed(contents, event.docId());
 
-        // 3) 落库
+        // 3) 逐条落库
         for (int i = 0; i < chunks.size(); i++) {
             DocumentIndexedEvent.Chunk c = chunks.get(i);
             DocChunk row = new DocChunk();

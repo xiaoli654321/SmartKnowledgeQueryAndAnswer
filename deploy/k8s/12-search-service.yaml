@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-service
+  namespace: skqa
+  labels: { app: search-service }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: search-service }
+  template:
+    metadata:
+      labels: { app: search-service }
+    spec:
+      containers:
+        - name: search-service
+          image: skqa/search-service:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8083
+          env:
+            - name: SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR
+              valueFrom: { configMapKeyRef: { name: skqa-config, key: NACOS_SERVER } }
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://$(MYSQL_HOST):$(MYSQL_PORT)/search_db?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf8"
+            - name: MYSQL_HOST
+              valueFrom: { configMapKeyRef: { name: skqa-config, key: MYSQL_HOST } }
+            - name: MYSQL_PORT
+              valueFrom: { configMapKeyRef: { name: skqa-config, key: MYSQL_PORT } }
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              valueFrom: { configMapKeyRef: { name: skqa-config, key: KAFKA_BOOTSTRAP } }
+            - name: EMBEDDING_API_KEY
+              valueFrom: { secretKeyRef: { name: skqa-secret, key: EMBEDDING_API_KEY } }
+            - name: TZ
+              valueFrom: { configMapKeyRef: { name: skqa-config, key: TZ } }
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits:   { cpu: "1",    memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8083 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-service
+  namespace: skqa
+spec:
+  selector: { app: search-service }
+  ports:
+    - port: 8083
+      targetPort: 8083

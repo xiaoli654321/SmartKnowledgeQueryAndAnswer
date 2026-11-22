@@ -13,9 +13,8 @@ import java.util.List;
 /**
  * 检索接口。
  * <p>
+ * 用 POST + JSON body 而不是 GET 参数：query 可能是一整段话，塞 URL 会撞长度上限。
  * 路径前缀 /search 必须和网关的路由断言 Path=/search/** 对上。
- * 用 POST + JSON body 而不是 GET 参数：query 可能很长（用户整段话），
- * 塞进 URL 会撞长度上限，也不利于日志脱敏。
  */
 @RestController
 @RequestMapping("/search")
@@ -29,8 +28,8 @@ public class SearchController {
 
     /**
      * 混合检索。
-     * 请求示例：{"query":"入职满一年能休几天年假","tenantId":1001,"topK":3}
-     * 返回：按 RRF 分降序的分块列表，带 keywordRank / vectorRank 便于排查是哪一路召回
+     * 请求：{"query":"入职满一年能休几天年假","tenantId":1001,"topK":3}
+     * 返回：按 RRF 分降序的分块，带 keywordRank / vectorRank 便于排查是哪一路召回
      */
     @PostMapping("/hybrid")
     public List<SearchHit> hybrid(@RequestBody SearchRequest request) {

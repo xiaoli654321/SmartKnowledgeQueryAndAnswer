@@ -8,14 +8,12 @@ import org.springframework.stereotype.Service;
 /**
  * Token 计量：按租户 / 按供应商累计用量，落 Redis。
  * <p>
- * 为什么必须用 Redis 而不是进程内 Map：
- * ai-service 是无状态的，会横向扩多个实例；用 Map 的话每个实例各算各的，
- * 用户看到的"本月用了多少 token"取决于负载均衡把请求打到哪台 —— 数字毫无意义。
+ * ★ 为什么不用进程内 Map：ai-service 是无状态的，会横向扩多个实例；
+ *   用 Map 的话"本月用了多少 token"取决于负载均衡把请求打到哪台 —— 数字毫无意义。
  * <p>
  * key 设计：
- *   token:tenant:{tenantId}   —— 计费/配额用（按租户）
- *   token:provider:{name}     —— 成本分析用（看哪家花得多，决定要不要切换供应商）
- * 生产上还应带时间维度（token:tenant:{id}:2026-11），这里先简化。
+ *   token:tenant:{tenantId}  —— 计费/配额
+ *   token:provider:{name}    —— 成本分析（哪家花得多）
  */
 @Service
 public class TokenMeterService {
@@ -28,7 +26,6 @@ public class TokenMeterService {
         this.redis = redis;
     }
 
-    /** 记录一次调用的用量 */
     public void record(Long tenantId, String provider, long input, long output) {
         long total = input + output;
         if (total <= 0) {
@@ -39,7 +36,7 @@ public class TokenMeterService {
             redis.opsForValue().increment("token:tenant:" + tenantId, total);
             redis.opsForValue().increment("token:provider:" + provider, total);
         } catch (Exception e) {
-            // 计量失败不能影响主流程：问答该给的答案还是要给
+            // 计量失败不能影响主流程：答案该给还是要给
             log.error("Token 计量写入失败 tenantId={} provider={} err={}", tenantId, provider, e.getMessage());
         }
     }

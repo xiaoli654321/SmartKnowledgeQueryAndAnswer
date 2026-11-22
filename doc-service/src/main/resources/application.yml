@@ -19,13 +19,13 @@ spring:
   kafka:
     bootstrap-servers: 127.0.0.1:9092
     producer:
-      # key 用文档 ID 保证同一篇文档的分片进同一分区、顺序不乱
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      # value 用 JSON（会自动带上类型头，consumer 侧我们要用自己的类接收，所以那边关掉类型头）
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        # broker 不可用时 send() 会阻塞这么久再抛异常；默认 60s 会把上传接口一起拖死
+        max.block.ms: 5000
   servlet:
     multipart:
-      # ★ 默认单文件上限只有 1MB，传稍大的 PDF 就报 MaxUploadSizeExceededException
       max-file-size: 30MB
       max-request-size: 30MB
 

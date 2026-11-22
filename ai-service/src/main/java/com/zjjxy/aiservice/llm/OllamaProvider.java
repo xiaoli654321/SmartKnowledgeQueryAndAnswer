@@ -13,10 +13,11 @@ import java.util.Map;
  * 本地 Ollama 供应商（兜底）。
  * <p>
  * 用途：云厂商挂了 / 欠费 / 网络不通时，至少还能用本机小模型给出一个（质量差但可用的）回答，
- * 而不是整个问答直接 503。这就是 Failover 的意义 —— 降级，而不是归零。
+ * 而不是整个问答直接 503 —— 这就是 Failover 的意义：降级，而不是归零。
  * <p>
- * Ollama 的 /api/chat 响应里 usage 字段叫 prompt_eval_count / eval_count，和 OpenAI 不一样，
- * 这类"每家口径不同"的细节正是抽象成 LlmProvider 的价值所在。
+ * ★ 字段名和 OpenAI 完全不同：
+ *   message.content + prompt_eval_count / eval_count
+ * 这正是把它抽象成 LlmProvider 的价值：每家口径不同，但对外接口一致。
  */
 @Component
 public class OllamaProvider implements LlmProvider {

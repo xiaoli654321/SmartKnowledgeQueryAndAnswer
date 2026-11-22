@@ -49,7 +49,7 @@ public class TextChunker {
 
             // 极端情况：一整段没有任何标点（比如超长编号串），只能按长度硬切，否则这一块永远超长
             for (String piece : hardSplit(sentence)) {
-                if (current.length() > 0 && current.length() + piece.length() > MAX_CHARS) {
+                if (!current.isEmpty() && current.length() + piece.length() > MAX_CHARS) {
                     // 先 trim 成最终落库的块，再从"这一块"取尾部重叠，
                     // 保证下一块的开头严格等于上一块结尾的 OVERLAP_CHARS 个字（不会被空白吃掉一位）
                     String finished = current.toString().trim();

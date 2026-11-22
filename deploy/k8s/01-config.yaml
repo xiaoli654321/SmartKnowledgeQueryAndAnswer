@@ -1,0 +1,17 @@
+# 非敏感配置：地址与业务参数
+# 敏感信息（LLM key）放 Secret，见 02-secret.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skqa-config
+  namespace: skqa
+data:
+  # 中间件地址：演示环境用集群内 Service；真实环境换成 RDS / 云 Kafka
+  NACOS_SERVER: "nacos:8848"
+  MYSQL_HOST: "mysql"
+  MYSQL_PORT: "3306"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  KAFKA_BOOTSTRAP: "kafka:9092"
+  METRIC_BASE_URL: "http://metric-service:8090"
+  TZ: "Asia/Shanghai"

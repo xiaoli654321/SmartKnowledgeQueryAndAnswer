@@ -1,0 +1,22 @@
+# 入口：一个域名，/api 与页面都走 web；如需直连网关可另建 ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: skqa
+  namespace: skqa
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "180"
+    nginx.ingress.kubernetes.io/proxy-body-size: "40m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: skqa.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80

@@ -9,8 +9,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.Map;
 
 /**
- * 统一异常出口：参数问题返回 400，而不是 500。
- * ResponseStatusException（404/403）由 Spring 自己处理，这里不拦，否则状态码会被改成 500。
+ * 统一异常出口：参数问题返回 400 而不是 500。
+ * ResponseStatusException（404/403）由 Spring 自己处理，这里不拦。
+ * <p>
+ * （固定写法，不用你改）
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {

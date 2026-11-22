@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
  *
  * 字段和列一一对应，一个都不能多 —— 多一个 MyBatis-Plus 就会把它拼进 INSERT 的列名里，
  * 报 Unknown column 'xxx'；少一个 NOT NULL 的，就会报 Column 'xxx' cannot be null。
- *
+
  * 类型对得上：库是 bigint → Java 用 Long；库是 int → Java 用 Integer。
  * 用 Integer 存 bigint 的 id，数据量小时看不出问题，量一大就溢出。
  */

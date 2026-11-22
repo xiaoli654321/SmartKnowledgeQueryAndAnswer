@@ -1,10 +1,10 @@
-r"""metric-service：RAG 质量评测服务（Python + RAGAS）。
+"""metric-service：RAG 质量评测服务（Python + RAGAS）。
 
-定位（讲义原话）：离线/批处理/评测类【旁路服务】，不进 Nacos、不注册中心，Java 侧直连 HTTP。
-数据流：ai-service 每次问答 @Async 推一条样本到这里 → 攒到一定量 → 批量跑 RAGAS 打分。
+定位（讲义原话）：离线/评测类【旁路服务】，不进 Nacos、不注册中心，Java 侧直连 HTTP。
+数据流：ai-service 每次问答 @Async 推一条样本 → 攒量 → 批量跑 RAGAS。
 
-启动（用 conda 的 py313 环境）：
-    D:\Python\anacondainfo\envs\py313\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8090
+启动（conda py313）：
+    D:\\Python\\anacondainfo\\envs\\py313\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8090
 """
 import logging
 
@@ -47,9 +47,10 @@ def add_samples(samples: list[Sample]):
 
 @app.post("/metric/eval", response_model=EvalResponse)
 def evaluate(req: EvalRequest):
-    """对传入的样本直接评测（同步，会调裁判模型，几十秒级）。"""
+    """对传入样本直接评测（同步，会调裁判模型，几十秒到几分钟）。"""
     if not req.samples:
         raise HTTPException(status_code=400, detail="samples 不能为空")
+
     has_gt = all(s.ground_truth for s in req.samples)
     try:
         scores = evaluate_samples(req.samples)
@@ -63,8 +64,8 @@ def evaluate(req: EvalRequest):
 def evaluate_stored(limit: int = 20):
     """对已攒的线上样本批量评测。
 
-    线上样本没有参考答案，所以只有 faithfulness / answer_relevancy
-    （ragas 0.4 已移除 context_relevancy，context_precision 必须有参考答案）。
+    线上样本没有参考答案 → 只有 faithfulness / answer_relevancy
+    （ragas 0.4 移除了 context_relevancy，context_precision 必须有参考答案）。
     """
     samples = store.load(limit=limit)
     if not samples:

@@ -27,6 +27,7 @@ spring:
         # ★ 关键：生产者会把「它自己的类全限定名」写进消息头，search-service 里没有那个类。
         #   关掉类型头、指定用本地 DTO 反序列化，否则消费时报 ClassNotFoundException
         spring.json.use.type.headers: false
+        # 指定用本地哪个类反序列化（event/DocumentIndexedEvent 已建好）
         spring.json.value.default.type: com.zjjxy.searchservice.event.DocumentIndexedEvent
 
 mybatis-plus:
@@ -39,6 +40,7 @@ search:
   keyword-top-k: 10       # 关键词召回候选数
   vector-top-k: 10        # 向量召回候选数
   rrf-k: 60
+  max-chunks-per-doc: 2          # 同一篇文档最多返回几块（防止答案出处全是同一段话）
   vector-candidate-limit: 2000   # 向量召回时最多捞多少条候选进内存算余弦（防止整库读进内存）               # RRF 融合公式里的平滑常数，通常取 60
 
 # 向量模型配置（SiliconFlow 的 bge-m3，1024 维）

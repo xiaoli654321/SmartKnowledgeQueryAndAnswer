@@ -1,0 +1,17 @@
+**/target/classes/
+**/target/generated-sources/
+**/target/generated-test-sources/
+**/target/test-classes/
+**/target/surefire-reports/
+**/target/maven-status/
+**/target/maven-archiver/
+**/.git/
+**/.idea/
+**/node_modules/
+metric-service/.venv/
+**/__pycache__/
+metric-service/samples.jsonl
+metric-service/.env
+deploy/agent/
+*.log
+deploy/docker/agent/

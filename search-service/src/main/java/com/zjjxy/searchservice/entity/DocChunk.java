@@ -11,11 +11,14 @@ import java.time.LocalDateTime;
  * 文档分块（对应 search_db.doc_chunk）。
  *
  * <pre>
- * id / document_id / tenant_id / chunk_index / content
- * embedding        LONGTEXT  向量：1024 维 float 的 JSON 数组
- * embedding_model  VARCHAR   记录是哪一代模型算的，换模型时可以据此重算
- * create_time      DATETIME
+ * 库里实际列：
+ *   id / document_id / tenant_id / chunk_index / content
+ *   embedding        LONGTEXT  向量：1024 维 float 的 JSON 数组
+ *   embedding_model  VARCHAR   记录是哪代模型算的，换模型时据此重算
+ *   create_time      DATETIME
  * </pre>
+ *
+ * （实体是数据映射，直接给全，不用你改）
  */
 @Data
 @TableName("doc_chunk")
@@ -29,7 +32,7 @@ public class DocChunk {
     private Integer chunkIndex;
     private String content;
 
-    /** 向量（JSON 数组文本）。为空表示这轮 embedding 调用失败，只有关键词路可用 */
+    /** 向量（JSON 数组文本）。为空表示这轮 embedding 失败，只有关键词路可用 */
     private String embedding;
     private String embeddingModel;
 

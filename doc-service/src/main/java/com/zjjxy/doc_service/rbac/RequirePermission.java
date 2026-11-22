@@ -7,13 +7,14 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * 方法级权限注解（定义已给全，这是"契约"不是"逻辑"）。
+ * 方法级权限注解（定义已给全，这是契约，不用你改）。
  * <p>
  * 【注解思路】
- * - @Target(METHOD)：只能标在方法上，别让它标在类上造成歧义；
- * - @Retention(RUNTIME)：运行时切面要能读到它，CLASS 就失效了；
- * - value() 用字符串权限点（document:write / document:read），
- *   而不是枚举 —— 以后加权限不用改注解类、不用重新编译调用方。
+ * - @Target(METHOD)     ：只允许标在方法上，避免标在类上产生歧义；
+ * - @Retention(RUNTIME) ：切面要在运行时读到它。写成 CLASS 的话，@Around 永远匹配不到，
+ *                         而且不报错 —— 权限就静默失效了；
+ * - value() 用字符串权限点（document:write / document:read），不用枚举：
+ *   以后加权限点不用改注解类、不用重新编译所有调用方。
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

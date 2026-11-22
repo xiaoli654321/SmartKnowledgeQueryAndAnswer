@@ -1,0 +1,14 @@
+# ── 前端（前台 + 后台，nginx 静态托管 + API 反代）──────────────
+FROM nginx:1.27-alpine
+
+ENV TZ=Asia/Shanghai
+
+# 页面
+COPY web /usr/share/nginx/html
+# K8s 里 API 走 Service DNS，不能用 docker 的 host.docker.internal
+COPY deploy/k8s/nginx.k8s.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+HEALTHCHECK --interval=15s --timeout=3s --retries=3 \
+  CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1

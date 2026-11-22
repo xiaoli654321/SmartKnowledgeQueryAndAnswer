@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>企业知识库助手</title>
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- 左侧：新对话 + 历史 -->
+  <aside class="sidebar">
+    <div class="brand">企业知识库助手<div class="sub">RAG · 答案带出处</div></div>
+    <div class="nav" style="flex:0 0 auto;padding-top:0">
+      <div class="nav-item" id="newChat" style="border:1px solid var(--line);justify-content:center;font-weight:600;color:var(--accent)">
+        <span>＋ 开启新对话</span>
+      </div>
+    </div>
+    <div class="nav" id="historyBox">
+      <div class="nav-title">历史对话</div>
+    </div>
+    <div class="nav" style="flex:0 0 auto;border-top:1px solid var(--line);padding-top:8px">
+      <div class="nav-title">管理</div>
+      <a href="/admin.html" class="nav-item" style="text-decoration:none">
+        <span class="ico">⚙</span><span>后台管理</span>
+      </a>
+    </div>
+    <div class="side-foot">管理员：<code class="inline">admin / admin123</code></div>
+  </aside>
+
+  <!-- 右侧：对话区 -->
+  <div class="main chat-main">
+    <header class="topbar">
+      <span class="title" id="page-title">智能问答</span>
+      <span class="crumb">/ 前台</span>
+      <span class="spacer"></span>
+      <label for="tenant">租户</label>
+      <input type="number" id="tenant" style="width:84px" value="1001">
+      <span id="themeBox"></span>
+      <span id="authBox"></span>
+    </header>
+
+    <div class="chat-scroll" id="scroll">
+      <div class="chat-col" id="chat"></div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="composer">
+        <textarea id="q" rows="1" placeholder="给知识库助手发送消息（Enter 发送，Shift+Enter 换行）"></textarea>
+        <div class="bar">
+          <span class="hint2">基于企业文档回答，结论带 [n] 出处</span>
+          <button class="send" id="send" title="发送">↑</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/app.js"></script>
+<script>
+/* ── 会话：存 localStorage，支持多条历史 ── */
+const CHAT_KEY = 'skqa_chats';
+const CUR_KEY  = 'skqa_current';
+function loadChats(){ try { return JSON.parse(localStorage.getItem(CHAT_KEY) || '[]'); } catch { return []; } }
+function saveChats(list){ localStorage.setItem(CHAT_KEY, JSON.stringify(list.slice(0, 30))); }
+function currentId(){ return localStorage.getItem(CUR_KEY) || ''; }
+function setCurrent(id){ localStorage.setItem(CUR_KEY, id); }
+
+let chats = loadChats();
+let cur = chats.find(c => c.id === currentId()) || null;
+
+const chatEl = el('chat');
+const scrollEl = el('scroll');
+const qEl = el('q');
+const tenantEl = el('tenant');
+tenantEl.value = getTenant();
+tenantEl.onchange = () => setTenant(tenantEl.value);
+
+function newChat(){
+  cur = { id: 'c' + Date.now(), title: '新对话', messages: [] };
+  chats.unshift(cur); saveChats(chats); setCurrent(cur.id);
+  renderHistory(); renderChat();
+}
+
+function renderHistory(){
+  const box = el('historyBox');
+  const items = chats.map(c => `
+    <div class="nav-item ${c.id === (cur && cur.id) ? 'active' : ''}" data-id="${c.id}">
+      <span class="ico">💬</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.title)}</span>
+    </div>`).join('');
+  box.innerHTML = '<div class="nav-title">历史对话</div>' + (items || '<div class="hint" style="padding:4px 10px">还没有对话</div>');
+  box.querySelectorAll('.nav-item[data-id]').forEach(n => n.onclick = () => {
+    cur = chats.find(c => c.id === n.dataset.id); setCurrent(cur.id); renderHistory(); renderChat();
+  });
+}
+
+function welcomeHtml(){
+  return `
+    <div class="welcome">
+      <h1>有什么可以帮你？</h1>
+      <p>先从企业文档里找依据，再让大模型基于依据回答</p>
+      <div class="chips">
+        <div class="chip" data-q="入职满一年能休几天年假？">入职满一年能休几天年假？</div>
+        <div class="chip" data-q="跨城出差住宿最多报多少？">跨城出差住宿最多报多少？</div>
+        <div class="chip" data-q="报销单据要多久内提交？">报销单据要多久内提交？</div>
+      </div>
+    </div>`;
+}
+
+function renderChat(){
+  if (!cur || !cur.messages.length) {
+    chatEl.innerHTML = welcomeHtml();
+    chatEl.querySelectorAll('.chip').forEach(c => c.onclick = () => { qEl.value = c.dataset.q; send(); });
+    return;
+  }
+  chatEl.innerHTML = cur.messages.map((m, i) => {
+    if (m.role === 'user') {
+      return `<div class="msg-user"><div class="bubble">${esc(m.text)}</div></div>`;
+    }
+    const cites = (m.citations || []).map((c, ci) => `
+      <span class="source-chip" data-msg="${i}" data-ci="${ci}">[${c.index}] 文档 ${c.documentId} · 片段 ${c.chunkIndex}</span>
+    `).join('');
+    const bodies = (m.citations || []).map((c, ci) => `
+      <div class="source-body" id="src-${i}-${ci}">${esc(c.snippet)}</div>
+    `).join('');
+    return `
+      <div class="msg-ai">
+        <div class="avatar">AI</div>
+        <div class="body">
+          <div class="text">${m.role === "ai" ? md(m.text) : esc(m.text)}</div>
+          <div class="meta">
+            <span>供应商 <b>${esc(m.provider || '-')}</b></span>
+            <span>耗时 <b>${m.latencyMs ? fmt(m.latencyMs) : '-'}</b></span>
+            <span>Token <b>${m.inputTokens || 0}/${m.outputTokens || 0}</b></span>
+            <span>出处 <b>${(m.citations || []).length}</b></span>
+          </div>
+          ${cites ? `<div class="sources">${cites}</div>${bodies}` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  chatEl.querySelectorAll('.source-chip').forEach(s => s.onclick = () => {
+    const b = el(`src-${s.dataset.msg}-${s.dataset.ci}`);
+    if (b) b.classList.toggle('open');
+  });
+  scrollEl.scrollTop = scrollEl.scrollHeight;
+}
+
+function pushMessage(m){ cur.messages.push(m); saveChats(chats); }
+
+async function send(){
+  const question = qEl.value.trim();
+  if (!question) return;
+  if (!cur) { newChat(); }
+
+  qEl.value = '';
+  qEl.style.height = 'auto';
+  pushMessage({ role: 'user', text: question });
+  if (cur.messages.filter(m => m.role === 'user').length === 1) {
+    cur.title = question.slice(0, 20);
+    renderHistory();
+  }
+  renderChat();
+
+  // 打字指示
+  const holder = document.createElement('div');
+  holder.className = 'msg-ai';
+  holder.innerHTML = `<div class="avatar">AI</div><div class="body"><span class="typing"><i></i><i></i><i></i> 正在检索并组织答案…</span></div>`;
+  chatEl.appendChild(holder);
+  scrollEl.scrollTop = scrollEl.scrollHeight;
+
+  const btn = el('send'); btn.disabled = true;
+  try {
+    const r = await api('/ai/ask', { method:'POST', body:{ question, tenantId: Number(tenantEl.value) } });
+    holder.remove();
+    pushMessage({
+      role: 'ai', text: r.answer || '(空)', provider: r.provider,
+      latencyMs: r.latencyMs, inputTokens: r.inputTokens, outputTokens: r.outputTokens,
+      citations: r.citations || []
+    });
+    renderChat();
+  } catch (e) {
+    holder.remove();
+    pushMessage({ role: 'ai', text: '请求失败：' + e.message, provider: '-', citations: [] });
+    renderChat();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+el('newChat').onclick = newChat;
+el('send').onclick = send;
+qEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+qEl.addEventListener('input', () => {
+  qEl.style.height = 'auto';
+  qEl.style.height = Math.min(qEl.scrollHeight, 180) + 'px';
+});
+
+renderHistory();
+renderChat();
+if (!chats.length) newChat();
+
+// 调试/演示用：?q=问题 会自动发一条（也方便截图与录屏）
+const autoQ = new URLSearchParams(location.search).get('q');
+if (autoQ) {
+  newChat();
+  qEl.value = autoQ;
+  send();
+}
+</script>
+</body>
+</html>

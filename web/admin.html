@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>知识库后台</title>
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">知识库后台<div class="sub">文档 · 版本 · 计量 · 评测</div></div>
+    <nav class="nav">
+      <div class="nav-title">管理</div>
+      <div class="nav-item active" data-section="overview" data-title="概览"><span class="ico">▦</span><span>概览</span></div>
+      <div class="nav-item" data-section="docs" data-title="文档管理"><span class="ico">▤</span><span>文档管理</span></div>
+      <div class="nav-item" data-section="versions" data-title="版本与回滚"><span class="ico">↺</span><span>版本与回滚</span></div>
+      <div class="nav-title">运营</div>
+      <div class="nav-item" data-section="ops" data-title="运营数据"><span class="ico">◔</span><span>运营数据</span></div>
+      <div class="nav-item" data-section="eval" data-title="质量评测"><span class="ico">✓</span><span>质量评测</span></div>
+    </nav>
+    <div class="side-foot"><a href="/">← 返回对话</a></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <span class="title" id="page-title">概览</span>
+      <span class="crumb">/ 后台</span>
+      <span class="spacer"></span>
+      <label for="tenant">租户</label>
+      <input type="number" id="tenant" style="width:84px" value="1001">
+      <span id="themeBox"></span>
+      <span id="authBox"></span>
+    </header>
+
+    <div class="content">
+
+      <section class="section active" id="sec-overview">
+        <div class="card" id="loginHint" style="display:none;border-color:var(--accent);background:var(--accent-soft)">
+          <h2 style="color:var(--accent)">还没有登录</h2>
+          <div class="hint" style="color:var(--text-2);margin-top:0">
+            上传文档、回滚版本需要登录（管理员 <code class="inline">admin / admin123</code>）。
+            未登录时只能查看，写操作会返回 401。
+          </div>
+          <div class="row" style="margin-top:10px">
+            <div class="fixed"><button class="primary" id="hintLogin">立即登录</button></div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">文档数</div><div class="v" id="st-docs">-</div><div class="d">本租户</div></div>
+          <div class="stat"><div class="k">评测样本</div><div class="v" id="st-samples">-</div><div class="d">metric-service 已攒</div></div>
+          <div class="stat"><div class="k">Token 累计</div><div class="v" id="st-tokens">-</div><div class="d">按租户计量</div></div>
+          <div class="stat"><div class="k">网关状态</div><div class="v" id="st-health">-</div><div class="d">actuator/health</div></div>
+        </div>
+        <div class="card">
+          <h2>快捷操作</h2>
+          <div class="row">
+            <div class="fixed"><button class="ghost" id="refresh">刷新概览</button></div>
+            <div class="fixed"><button class="ghost" id="gotoDocs">去上传文档</button></div>
+          </div>
+          <div class="hint">概览数据来自三个服务：doc-service（文档）、metric-service（样本）、ai-service（Token）。</div>
+        </div>
+      </section>
+
+      <section class="section" id="sec-docs">
+        <div class="card">
+          <h2>上传文档</h2>
+          <div class="row">
+            <div><label class="blk" for="title">标题</label><input type="text" id="title" placeholder="例如：年假政策"></div>
+            <div><label class="blk" for="file">文件（.txt / .md / .pdf / .docx）</label><input type="file" id="file"></div>
+            <div class="fixed"><button class="primary" id="upload">上传并建索引</button></div>
+          </div>
+          <div class="hint">上传需要登录（admin / editor）；未登录会返回 401，角色不够返回 403。</div>
+        </div>
+        <div class="card">
+          <h2>文档列表</h2>
+          <div class="row"><div class="fixed"><button class="ghost" id="listDocs">刷新列表</button></div></div>
+          <pre id="docList" class="empty" style="margin-top:12px">点「刷新列表」加载</pre>
+        </div>
+      </section>
+
+      <section class="section" id="sec-versions">
+        <div class="card">
+          <h2>版本与回滚</h2>
+          <div class="row">
+            <div style="flex:0 0 130px"><label class="blk" for="docId">文档 ID</label><input type="number" id="docId" value="13"></div>
+            <div class="fixed"><button class="ghost" id="loadDoc">查文档</button></div>
+            <div class="fixed"><button class="ghost" id="loadVersions">查版本</button></div>
+            <div style="flex:0 0 120px"><label class="blk" for="ver">回滚到版本</label><input type="number" id="ver" value="1"></div>
+            <div class="fixed"><button class="ghost" id="rollback">回滚</button></div>
+          </div>
+          <div class="hint">回滚不是删除历史：把老版本内容写回主表，并追加一条新版本。</div>
+        </div>
+        <div class="card"><h2>结果</h2><pre id="verOut" class="empty">操作结果会显示在这里</pre></div>
+      </section>
+
+      <section class="section" id="sec-ops">
+        <div class="card">
+          <h2>运营数据</h2>
+          <div class="row">
+            <div class="fixed"><button class="ghost" id="token">查本租户 Token</button></div>
+            <div class="fixed"><button class="ghost" id="health">服务健康</button></div>
+          </div>
+        </div>
+        <div class="card"><h2>结果</h2><pre id="opsOut" class="empty">操作结果会显示在这里</pre></div>
+      </section>
+
+      <section class="section" id="sec-eval">
+        <div class="card">
+          <h2>RAGAS 质量评测</h2>
+          <div class="row"><div class="fixed"><button class="primary" id="evalNow">对已攒样本跑一次评测</button></div></div>
+          <div class="hint">评测走 metric-service（旁路服务，不在网关后面），通常 40~90 秒。</div>
+        </div>
+        <div class="card"><h2>结果</h2><pre id="evalOut" class="empty">操作结果会显示在这里</pre></div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script src="/assets/app.js"></script>
+<script>
+const tenantEl = el('tenant');
+tenantEl.value = getTenant();
+tenantEl.onchange = () => setTenant(tenantEl.value);
+const tenant = () => Number(tenantEl.value);
+
+function show(id, title, data){
+  const out = el(id);
+  out.classList.remove('empty');
+  out.textContent = '▶ ' + title + '\n' + (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+}
+
+async function refreshOverview(){
+  const t = tenant();
+  try { el('st-docs').textContent = (await api(`/doc?tenantId=${t}&limit=100`)).length; }
+  catch { el('st-docs').textContent = '×'; }
+  try { el('st-samples').textContent = (await metric('/health', { method:'GET' })).samples; }
+  catch { el('st-samples').textContent = '×'; }
+  try { el('st-tokens').textContent = await api(`/ai/token/tenant/${t}`); }
+  catch { el('st-tokens').textContent = '×'; }
+  try { el('st-health').textContent = (await api('/actuator/health')).status || '?'; }
+  catch { el('st-health').textContent = '×'; }
+}
+
+function refreshLoginHint(){
+  const hint = el('loginHint');
+  if (hint) hint.style.display = getUser() ? 'none' : 'block';
+}
+window.__onLogin = () => { refreshLoginHint(); refreshOverview(); };
+window.__onLogout = () => refreshLoginHint();
+window.__onSection = (key) => { if (key === 'overview') { refreshOverview(); refreshLoginHint(); } };
+window.__onLogin = () => refreshOverview();
+initNav('overview');
+refreshLoginHint();
+refreshOverview();
+
+const hintBtn = el('hintLogin');
+if (hintBtn) hintBtn.onclick = openLogin;
+
+el('refresh').onclick = refreshOverview;
+el('gotoDocs').onclick = () => document.querySelector('.nav-item[data-section="docs"]').click();
+
+el('upload').onclick = async () => {
+  const f = el('file').files[0];
+  if (!f) return show('docList', '上传失败', '请先选择文件');
+  const form = new FormData();
+  form.append('file', f);
+  form.append('title', el('title').value || f.name);
+  form.append('tenantId', tenant());
+  const btn = el('upload'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>上传中…';
+  try { show('docList', '上传成功', await api('/doc/upload', { method:'POST', form })); }
+  catch (e) { show('docList', '上传失败', e.message); }
+  finally { btn.disabled = false; btn.textContent = '上传并建索引'; }
+};
+
+el('listDocs').onclick = async () => {
+  try {
+    const docs = await api(`/doc?tenantId=${tenant()}&limit=100`);
+    if (!docs.length) return show('docList', '文档列表', '本租户还没有文档');
+    show('docList', `文档列表（${docs.length} 篇）`,
+      docs.map(d => `#${String(d.id).padEnd(4)} ${d.title}   (${(d.content||'').length} 字)`).join('\n'));
+  } catch (e) { show('docList', '查询失败', e.message); }
+};
+
+el('loadDoc').onclick = async () => {
+  try { show('verOut', '文档详情', await api(`/doc/${el('docId').value}?tenantId=${tenant()}`)); }
+  catch (e) { show('verOut', '查询失败', e.message); }
+};
+el('loadVersions').onclick = async () => {
+  try { show('verOut', '版本列表', await api(`/doc/${el('docId').value}/versions?tenantId=${tenant()}`)); }
+  catch (e) { show('verOut', '查询失败', e.message); }
+};
+el('rollback').onclick = async () => {
+  try {
+    show('verOut', '回滚结果', await api(
+      `/doc/${el('docId').value}/rollback?tenantId=${tenant()}&version=${el('ver').value}`,
+      { method:'POST' }));
+  } catch (e) { show('verOut', '回滚失败', e.message); }
+};
+
+el('token').onclick = async () => {
+  try { show('opsOut', '租户 Token 累计', { tenantId: tenant(), tokens: await api(`/ai/token/tenant/${tenant()}`) }); }
+  catch (e) { show('opsOut', '查询失败', e.message); }
+};
+el('health').onclick = async () => {
+  try { show('opsOut', '网关健康', await api('/actuator/health')); }
+  catch (e) { show('opsOut', '查询失败', e.message); }
+};
+
+el('evalNow').onclick = async () => {
+  const btn = el('evalNow'); btn.disabled = true; btn.innerHTML = '<span class="spin" style="border-color:#ffffff80;border-top-color:#fff"></span>评测中…';
+  try { show('evalOut', 'RAGAS 评测结果（40~90 秒）', await metric('/eval-stored?limit=20')); }
+  catch (e) { show('evalOut', '评测失败', e.message + '\n（先在前台问几个问题攒样本）'); }
+  finally { btn.disabled = false; btn.textContent = '对已攒样本跑一次评测'; }
+};
+</script>
+</body>
+</html>

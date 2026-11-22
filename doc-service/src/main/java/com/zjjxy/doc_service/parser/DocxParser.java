@@ -29,6 +29,7 @@ public class DocxParser implements DocumentParser {
     }
 
     @Override
+//    docx文件本身就是一个二进制压缩文件，所以不能直接用String去接收要使用byte
     public String parse(byte[] bytes) throws IOException {
         StringBuilder sb = new StringBuilder();
         try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes))) {

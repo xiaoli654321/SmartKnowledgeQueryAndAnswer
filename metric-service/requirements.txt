@@ -1,15 +1,6 @@
-# metric-service 依赖（不建 venv，直接装在 conda 环境 py313 里）
-#
-# 环境：D:\Python\anacondainfo\envs\py313  （Python 3.13.13）
-# 该环境已有：ragas 0.4.4 / fastapi 0.162.2 / uvicorn 0.29.0 /
-#             datasets 5.2.0 / langchain-openai / openai / python-dotenv
-#
-# 换机器时执行：
-#   conda activate py313
-#   pip install -r requirements.txt
-#
-# 注意：ragas 用 0.4.x（讲义写的是 >=0.1,<0.2，但 0.4 的 evaluate(...) 兼容 0.1 写法，
-# 且已移除 context_relevancy —— 代码里已按 0.4 适配，见 app/ragas_runner.py）
+# metric-service 依赖（装在 conda 环境 py313 里，不建 venv）
+# 环境：D:\Python\anacondainfo\envs\py313  (Python 3.13)
+# 已有：ragas 0.4.4 / fastapi 0.162 / uvicorn 0.29 / datasets 5.2 / langchain-openai / python-dotenv
 fastapi
 uvicorn[standard]
 ragas>=0.4

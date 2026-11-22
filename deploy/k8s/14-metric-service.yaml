@@ -1,0 +1,54 @@
+# 评测服务：单副本、无状态、可随时重启；调用方是 ai-service（HTTP 直连）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metric-service
+  namespace: skqa
+  labels: { app: metric-service }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: metric-service }
+  template:
+    metadata:
+      labels: { app: metric-service }
+    spec:
+      containers:
+        - name: metric-service
+          image: skqa/metric-service:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8090
+          env:
+            - name: LLM_API_KEY
+              valueFrom: { secretKeyRef: { name: skqa-secret, key: LLM_API_KEY } }
+            - name: EMBEDDING_API_KEY
+              valueFrom: { secretKeyRef: { name: skqa-secret, key: EMBEDDING_API_KEY } }
+            - name: SAMPLE_FILE
+              value: "/data/samples.jsonl"
+            - name: TZ
+              valueFrom: { configMapKeyRef: { name: skqa-config, key: TZ } }
+          volumeMounts:
+            - name: samples
+              mountPath: /data
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits:   { cpu: "1",    memory: "1.5Gi" }
+          readinessProbe:
+            httpGet: { path: /metric/health, port: 8090 }
+            initialDelaySeconds: 20
+            periodSeconds: 15
+      volumes:
+        - name: samples
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metric-service
+  namespace: skqa
+spec:
+  selector: { app: metric-service }
+  ports:
+    - port: 8090
+      targetPort: 8090

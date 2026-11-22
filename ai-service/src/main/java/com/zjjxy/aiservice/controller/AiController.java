@@ -12,9 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * AI 服务对外接口。
- * <p>
- * 路径前缀 /ai 必须和网关的路由断言 Path=/ai/** 对上。
+ * AI 服务对外接口。路径前缀 /ai 必须和网关路由 Path=/ai/** 对上。
  */
 @RestController
 @RequestMapping("/ai")
